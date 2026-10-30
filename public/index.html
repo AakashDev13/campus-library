@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Campus Library</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <h1>Campus Library</h1>
+
+    <p class="sub">
+        Authors and their books — data served by GraphQL
+    </p>
+
+    <div id="list">Loading...</div>
+
+    <form id="addForm">
+
+        <h3>Add a book</h3>
+
+        <input
+            id="title"
+            placeholder="Book title"
+            required
+        >
+
+        <input
+            id="year"
+            type="number"
+            placeholder="Year"
+            style="width:90px"
+        >
+
+        <select id="authorId">
+            <option value="2">Aakash</option>
+            <option value="2">Aakash jarwal</option>
+            <option value="2">Badal jarwal</option>
+            <option value="2">Tanvi</option>
+        </select>
+
+        <button type="submit">Add book</button>
+
+    </form>
+
+    <script>
+
+        const API = 'http://localhost:4000/';
+
+        // GraphQL helper
+        async function gql(query, variables) {
+
+            const res = await fetch(API, {
+                method: 'POST',
+
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+
+                body: JSON.stringify({
+                    query,
+                    variables
+                })
+            });
+
+            const json = await res.json();
+
+            if (json.errors) {
+                throw new Error(json.errors[0].message);
+            }
+
+            return json.data;
+        }
+
+        // READ authors and books
+        async function load() {
+
+            try {
+
+                const data = await gql(`
+                    {
+                        authors {
+                            id
+                            name
+                            country
+                            books {
+                                title
+                                year
+                            }
+                        }
+                    }
+                `);
+
+                document.getElementById('list').innerHTML =
+                    data.authors.map(author => `
+
+                        <div class="author-card">
+
+                            <h2>${author.name}</h2>
+
+                            <div class="country">
+                                ${author.country || ''}
+                            </div>
+
+                            ${author.books.map(book => `
+                                <div class="book">
+                                    ${book.title}
+                                    <span class="yr">
+                                        (${book.year ?? 'Year unknown'})
+                                    </span>
+                                </div>
+                            `).join('')}
+
+                        </div>
+
+                    `).join('');
+
+            } catch (error) {
+
+                document.getElementById('list').textContent =
+                    'Error: ' + error.message;
+
+            }
+        }
+
+        // WRITE: Add book
+        document.getElementById('addForm')
+            .addEventListener('submit', async (e) => {
+
+                e.preventDefault();
+
+                const title =
+                    document.getElementById('title').value;
+
+                const yearValue =
+                    document.getElementById('year').value;
+
+                const year = yearValue
+                    ? Number(yearValue)
+                    : null;
+
+                const authorId =
+                    document.getElementById('authorId').value;
+
+                try {
+
+                    await gql(`
+                        mutation($t: String!, $y: Int, $a: ID!) {
+                            addBook(
+                                title: $t,
+                                year: $y,
+                                authorId: $a
+                            ) {
+                                id
+                            }
+                        }
+                    `, {
+                        t: title,
+                        y: year,
+                        a: authorId
+                    });
+
+                    e.target.reset();
+
+                    await load();
+
+                } catch (error) {
+
+                    alert(error.message);
+
+                }
+
+            });
+
+        load();
+
+    </script>
+
+</body>
+</html>
